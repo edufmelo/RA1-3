@@ -38,7 +38,17 @@ def parseExpressao(linha, vetorTokens):
             pos += 1
         elif char.isdigit() or char == '.':
             pos = estadoNumero(linha, pos, vetorTokens)
-        elif char in '+-*/%^':
+        elif char == '-':
+            # Olha o último token para decidir se é operador ou número negativo
+            ultimoToken = vetorTokens[-1] if len(vetorTokens) > 0 else None
+
+            if ultimoToken is None or ultimoToken.tipo == "ABRE_PAREN" or ultimoToken.tipo == "OPERADOR":
+                # Ex: (-2.0 3.0 +) ou (3.0 -2.0 +) -> número negativo
+                pos = estadoNumero(linha, pos, vetorTokens)
+            else:
+                # Ex: (3.0 2.0 -) → operador de subtração
+                pos = estadoOperador(linha, pos, vetorTokens)
+        elif char in '+*/%^':
             pos = estadoOperador(linha, pos, vetorTokens)
         elif char in '()':  # Implementação separada dos Identificadores para melhor organização
             pos = estadoParenteses(linha, pos, vetorTokens)
@@ -50,6 +60,11 @@ def parseExpressao(linha, vetorTokens):
 def estadoNumero(linha, pos, tokens):
     textoNumero = ""
     qtdePontos = 0
+    
+    # Aceita sinal negativo no início
+    if pos < len(linha) and linha[pos] == '-':
+        textoNumero += '-'
+        pos += 1
     
     while pos < len(linha) and (linha[pos].isdigit() or linha[pos] == '.'):
         if linha[pos] == '.':
@@ -71,6 +86,12 @@ def estadoNumero(linha, pos, tokens):
 
 def estadoOperador(linha, pos, tokens):
     char = linha[pos] # Caracter exato que o analisador esta lendo agora
+    
+    #Verifica se é divisão inteira //
+    if char == '/' and pos + 1 < len(linha) and linha[pos + 1] == '/':
+        novoToken = Token("OPERADOR", "//")
+        tokens.append(novoToken)
+        return pos + 2  # avança 2 caracteres
     
     # Instanciamos a classe Token com o tipo OPERADOR e o valor
     # (Mesma lógica para demais funções)
@@ -126,7 +147,137 @@ def estadoErro(linha, pos, tokens):
 
 # Avalia as expressões RPN (pilha) e gerencia memoria/RES
 def executarExpressao(tokens, resultados, memoria):
-    pass
+    pilha = []
+    i = 0
+
+    while i < len(tokens):
+        token = tokens[i]
+
+        # Ignora parênteses - estrutura já capturada pela ordem dos tokens
+        if token.tipo in ("ABRE_PAREN", "FECHA_PAREN"):
+            i += 1
+
+        # Empilha número
+        elif token.tipo == "NUMERO":
+            pilha.append(float(token.valor))
+            i += 1
+
+        # Operações aritméticas
+        elif token.tipo == "OPERADOR":
+            # Verifica se há operandos suficientes
+            if len(pilha) < 2:
+                print("Erro: operandos insuficientes para operador '" + token.valor + "'")
+                return None
+
+            b = pilha.pop()  # segundo operando
+            a = pilha.pop()  # primeiro operando
+
+            if token.valor == "+":
+                pilha.append(a + b)
+
+            elif token.valor == "-":
+                pilha.append(a - b)
+
+            elif token.valor == "*":
+                pilha.append(a * b)
+
+            elif token.valor == "/":
+                if b == 0:
+                    print("Erro: divisao por zero")
+                    return None
+                pilha.append(a / b)
+
+            elif token.valor == "//":
+                if b == 0:
+                    print("Erro: divisao inteira por zero")
+                    return None
+                pilha.append(float(int(a) // int(b)))
+
+            elif token.valor == "%":
+                if b == 0:
+                    print("Erro: resto por zero")
+                    return None
+                pilha.append(float(int(a) % int(b)))
+
+            elif token.valor == "^":
+                pilha.append(float(a ** int(b)))
+
+            i += 1
+
+        # Comando (MEM) ou (V MEM)
+        elif token.tipo == "MEMORIA":
+            nomeMem = token.valor
+
+            if len(pilha) > 0:
+                # Há valor na pilha → store: (V MEM)
+                memoria[nomeMem] = pilha.pop()
+            else:
+                # Pilha vazia → load: (MEM)
+                if nomeMem in memoria:
+                    pilha.append(memoria[nomeMem])
+                else:
+                    print("Aviso: memoria '" + nomeMem + "' nao inicializada, usando 0.0")
+                    pilha.append(0.0)
+
+            i += 1
+
+        # Comando (N RES)
+        elif token.tipo == "KEYWORD" and token.valor == "RES":
+            # O número N deve estar na pilha (empilhado antes do RES)
+            if len(pilha) < 1:
+                print("Erro: falta o valor N para RES")
+                return None
+
+            n = int(pilha.pop())
+            indice = len(resultados) - n
+
+            if indice < 0 or indice >= len(resultados):
+                print("Erro: RES(" + str(n) + ") fora do historico disponivel")
+                return None
+
+            pilha.append(resultados[indice])
+            i += 1
+
+        # Token de erro detectado pelo lexer
+        elif token.tipo == "ERRO":
+            print("Erro lexico: " + token.valor)
+            return None
+
+        else:
+            i += 1
+
+    # Ao final, o topo da pilha é o resultado
+    if len(pilha) == 1:
+        resultado = pilha[0]
+        resultados.append(resultado)
+        return resultado
+    elif len(pilha) == 0:
+        # Expressão de store (V MEM) não deixa resultado na pilha
+        return None
+    else:
+        print("Erro: pilha com multiplos valores ao final - expressao mal formada")
+        return None
+
+def resolverAninhamento(tokens):
+    # Retorna uma lista de grupos de tokens por nível de aninhamento
+    # Útil para a gerarAssembly saber a ordem de avaliação
+    pilhaGrupos = []
+    grupoAtual = []
+    grupos = []
+
+    for token in tokens:
+        if token.tipo == "ABRE_PAREN":
+            pilhaGrupos.append(grupoAtual)
+            grupoAtual = []
+        elif token.tipo == "FECHA_PAREN":
+            grupos.append(grupoAtual)
+            grupoAtual = pilhaGrupos.pop()
+        else:
+            grupoAtual.append(token)
+
+    return grupos
+
+
 
 # Gera código Assembly a partir dos tokens
 def gerarAssembly(tokens, codigoAssembly):
@@ -136,14 +287,153 @@ def gerarAssembly(tokens, codigoAssembly):
 def exibirResultados(resultados):
     pass
 
+def testarAnalisadorLexico():
+    print("=" * 50)
+    print("TESTES DO ANALISADOR LEXICO")
+    print("=" * 50)
+
+    # Cada caso tem: (descricao, entrada, True se valido / False se invalido)
+    casos = [
+        # Casos válidos
+        ("Adicao simples",           "(3.0 2.0 +)",           True),
+        ("Subtracao simples",        "(5.0 1.0 -)",           True),
+        ("Multiplicacao simples",    "(3.0 4.0 *)",           True),
+        ("Divisao real",             "(10.0 2.0 /)",          True),
+        ("Divisao inteira",          "(10 3 //)",             True),
+        ("Resto",                    "(10 3 %)",              True),
+        ("Potenciacao",              "(2.0 8 ^)",             True),
+        ("Numero negativo",          "(-2.0 3.0 +)",          True),
+        ("Expressao aninhada",       "((2.0 3.0 *) 4.0 +)",  True),
+        ("Comando RES",              "(2 RES)",               True),
+        ("Comando store MEM",        "(5.0 X)",               True),
+        ("Comando load MEM",         "(X)",                   True),
+
+        # Casos inválidos
+        ("Numero malformado",        "(3.14.5 2.0 +)",        False),
+        ("Separador virgula",        "(3,14 2.0 +)",          False),
+        ("Operador invalido",        "(3.0 2.0 &)",           False),
+        ("Identificador minusculo",  "(3.0 var +)",           False),
+    ]
+
+    aprovados = 0
+    reprovados = 0
+
+    for descricao, entrada, esperaValido in casos:
+        tokens = []
+        parseExpressao(entrada, tokens)
+
+        # Verifica se há algum token de ERRO na saída
+        temErro = any(t.tipo == "ERRO" for t in tokens)
+
+        # O teste passa se:
+        # - esperava válido e não tem erro
+        # - esperava inválido e tem erro
+        passou = (esperaValido and not temErro) or (not esperaValido and temErro)
+
+        status = "OK" if passou else "FALHOU"
+
+        if passou:
+            aprovados += 1
+        else:
+            reprovados += 1
+
+        print(status + " | " + descricao)
+        print("     Entrada : " + entrada)
+        print("     Tokens  : " + str(tokens))
+        print()
+
+    print("Resultado: " + str(aprovados) + " aprovados, " + str(reprovados) + " reprovados")
+    print("=" * 50)
+
+def testarExecutarExpressao():
+    print("=" * 50)
+    print("TESTES DO EXECUTAR EXPRESSAO")
+    print("=" * 50)
+
+    memoria = {}
+
+    # Teste 1 - (1 RES) deve retornar 20.0
+    resultados1 = []
+    tokens1 = []
+    parseExpressao("(3.14 2.0 +)", tokens1)
+    executarExpressao(tokens1, resultados1, memoria)   # resultados1 = [5.14]
+
+    tokens2 = []
+    parseExpressao("(10.0 2.0 *)", tokens2)
+    executarExpressao(tokens2, resultados1, memoria)   # resultados1 = [5.14, 20.0]
+
+    tokens3 = []
+    parseExpressao("(1 RES)", tokens3)
+    resultado = executarExpressao(tokens3, resultados1, memoria)
+    passou = resultado == 20.0
+    print(("OK" if passou else "FALHOU") + " | (1 RES) deve retornar 20.0, retornou: " + str(resultado))
+
+    # Teste 2 - (2 RES) deve retornar 5.14 → histórico separado!
+    resultados2 = []
+    tokens4 = []
+    parseExpressao("(3.14 2.0 +)", tokens4)
+    executarExpressao(tokens4, resultados2, memoria)   # resultados2 = [5.14]
+
+    tokens5 = []
+    parseExpressao("(10.0 2.0 *)", tokens5)
+    executarExpressao(tokens5, resultados2, memoria)   # resultados2 = [5.14, 20.0]
+
+    tokens6 = []
+    parseExpressao("(2 RES)", tokens6)
+    resultado = executarExpressao(tokens6, resultados2, memoria)
+    passou = abs(resultado - 5.14) < 0.001
+    print(("OK" if passou else "FALHOU") + " | (2 RES) deve retornar 5.14, retornou: " + str(resultado))
+
+    # Teste 3 - store e load de memoria
+    resultados3 = []
+    tokens7 = []
+    parseExpressao("(9.0 CONT)", tokens7)
+    executarExpressao(tokens7, resultados3, memoria)
+
+    tokens8 = []
+    parseExpressao("(CONT)", tokens8)
+    resultado = executarExpressao(tokens8, resultados3, memoria)
+    passou = resultado == 9.0
+    print(("OK" if passou else "FALHOU") + " | (CONT) deve retornar 9.0, retornou: " + str(resultado))
+
+    print("=" * 50)
+    
+def testarResolverAninhamento():
+    print("=" * 50)
+    print("TESTES DO RESOLVER ANINHAMENTO")
+    print("=" * 50)
+
+    # ((2.0 3.0 *) 4.0 +) deve gerar 2 grupos:
+    # grupo 1: [NUMERO(2.0), NUMERO(3.0), OPERADOR(*)]
+    # grupo 2: [NUMERO(4.0), OPERADOR(+)]
+    tokens = []
+    parseExpressao("((2.0 3.0 *) 4.0 +)", tokens)
+    grupos = resolverAninhamento(tokens)
+
+    print("Entrada: ((2.0 3.0 *) 4.0 +)")
+    print("Grupos encontrados: " + str(len(grupos)))
+    for i, grupo in enumerate(grupos):
+        print("  Grupo " + str(i) + ": " + str(grupo))
+
+    passou = len(grupos) == 2
+    print(("OK" if passou else "FALHOU") + " | deve ter 2 grupos")
+    print("=" * 50)
+
 def main():
     if len(sys.argv) < 2:
         print("Uso: python analisador.py <arquivo_teste>")
         return
     
+    testarAnalisadorLexico()  # Roda os testes do analisador léxico
+    testarExecutarExpressao()
+    testarResolverAninhamento()
+    
     nomeArquivo = sys.argv[1]
     linhas = []
     lerArquivo(nomeArquivo, linhas)
+    
+    resultados = []   # histórico de resultados para RES
+    memoria = {}      # dicionário de variáveis para MEM
 
     # Para cada linha, faz a analise lexica e mostra os tokens
     for i in range(len(linhas)):
@@ -154,6 +444,12 @@ def main():
         print("Linha " + str(i) + ": " + linhas[i])
         print("Tokens: " + str(vetorTokens)) 
         print()
+        
+        resultado = executarExpressao(vetorTokens, resultados, memoria)
 
+        if resultado is not None:
+            print("Resultado: " + str(resultado))
+        print()
+        
 if __name__ == "__main__":
     main()
