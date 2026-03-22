@@ -279,9 +279,33 @@ def resolverAninhamento(tokens):
 
 
 
-# Gera código Assembly a partir dos tokens
-def gerarAssembly(tokens, codigoAssembly):
-    pass
+# Gera codigo Assembly ARMv7 (VFP) completo a partir de uma lista de vetores de tokens
+def gerarAssembly(listaTokens, codigoAssembly):
+    secaoDados = []
+    secaoTexto = []
+    
+    for numLinha, tokens in enumerate(listaTokens):
+        secaoTexto.append("    @ Linha " + str(numLinha))
+        secaoTexto.append("linha" + str(numLinha) + ":")
+        secaoTexto.append("    @ TODO: Implementar conversao de codigo Assembly para esta expressao")
+        # Apenas imprime os tipos dos tokens para mostrar que a leitura ocorreu com sucesso
+        secaoTexto.append("    @ Tokens avaliados: " + ", ".join([t.tipo for t in tokens]))
+        secaoTexto.append("")
+
+    # Monta o codigo Assembly completo (esqueleto basico)
+    codigoAssembly.append(".global _start")
+    codigoAssembly.append("")
+    codigoAssembly.append(".data")
+    codigoAssembly.append("    @ TODO: Adicionar variaveis globais e constantes do programa")
+    codigoAssembly.append("")
+    codigoAssembly.append(".text")
+    codigoAssembly.append("_start:")
+    for linha in secaoTexto:
+        codigoAssembly.append(linha)
+    
+    codigoAssembly.append("    @ Fim do programa")
+    codigoAssembly.append("fim:")
+    codigoAssembly.append("    B fim")
 
 # Exibe os resultados formatados
 def exibirResultados(resultados):
@@ -292,7 +316,7 @@ def testarAnalisadorLexico():
     print("TESTES DO ANALISADOR LEXICO")
     print("=" * 50)
 
-    # Cada caso tem: (descricao, entrada, True se valido / False se invalido)
+    # Cada caso tem: (descrição, entrada, True se valido / False se invalido)
     casos = [
         # Casos válidos
         ("Adicao simples",           "(3.0 2.0 +)",           True),
@@ -419,37 +443,111 @@ def testarResolverAninhamento():
     print(("OK" if passou else "FALHOU") + " | deve ter 2 grupos")
     print("=" * 50)
 
+def testarGerarAssembly():
+    print("=" * 50)
+    print("TESTES DA GERACAO DE ASSEMBLY (VERSAO BASICA)")
+    print("=" * 50)
+
+    entradas = [
+        "(3.14 2.0 +)",
+        "(5.0 MEM)",
+    ]
+
+    listaTokens = []
+    for entrada in entradas:
+        tokens = []
+        parseExpressao(entrada, tokens)
+        listaTokens.append(tokens)
+
+    codigoAssembly = []
+    gerarAssembly(listaTokens, codigoAssembly)
+
+    # Verificacoes simples para compilacao inicial
+    temGlobal = any(".global _start" in linha for linha in codigoAssembly)
+    temSecaoDados = any(".data" in linha for linha in codigoAssembly)
+    temFim = any("B fim" in linha for linha in codigoAssembly)
+
+    testes = [
+        ("Gera .global _start", temGlobal),
+        ("Gera .data", temSecaoDados),
+        ("Gera bloco B fim", temFim),
+    ]
+
+    aprovados = 0
+    reprovados = 0
+
+    for descricao, passou in testes:
+        if passou:
+            aprovados += 1
+            status = "OK"
+        else:
+            reprovados += 1
+            status = "FALHOU"
+        print(status + " | " + descricao)
+
+    print()
+    print("Assembly basico gerado (" + str(len(codigoAssembly)) + " linhas):")
+    for linha in codigoAssembly:
+        print("     " + linha)
+    print()
+
+    print("Resultado: " + str(aprovados) + " aprovados, " + str(reprovados) + " reprovados")
+    print("=" * 50)
+
 def main():
     if len(sys.argv) < 2:
         print("Uso: python analisador.py <arquivo_teste>")
         return
-    
-    testarAnalisadorLexico()  # Roda os testes do analisador léxico
-    testarExecutarExpressao()
-    testarResolverAninhamento()
-    
+
+    testarAnalisadorLexico()      # Roda os testes do analisador lexico
+    testarExecutarExpressao()     # Roda os testes de execucao
+    testarResolverAninhamento()   # Roda os testes de aninhamento
+    testarGerarAssembly()         # Roda os testes de geracao de Assembly
+
     nomeArquivo = sys.argv[1]
     linhas = []
     lerArquivo(nomeArquivo, linhas)
-    
-    resultados = []   # histórico de resultados para RES
-    memoria = {}      # dicionário de variáveis para MEM
 
-    # Para cada linha, faz a analise lexica e mostra os tokens
+    resultados = []   # historico de resultados para RES
+    memoria = {}      # dicionario de variaveis para MEM
+    listaTokens = []  # acumula tokens de todas as linhas
+
+    # Para cada linha, faz a analise lexica e executa
     for i in range(len(linhas)):
         vetorTokens = []
         parseExpressao(linhas[i], vetorTokens)
-        
+
         # Utilizado para debugar
         print("Linha " + str(i) + ": " + linhas[i])
-        print("Tokens: " + str(vetorTokens)) 
+        print("Tokens: " + str(vetorTokens))
         print()
-        
+
         resultado = executarExpressao(vetorTokens, resultados, memoria)
 
         if resultado is not None:
             print("Resultado: " + str(resultado))
-        print()
-        
+            print()
+
+        listaTokens.append(vetorTokens)
+
+    # Gera e exibe o codigo Assembly ARMv7
+    codigoAssembly = []
+    gerarAssembly(listaTokens, codigoAssembly)
+
+    print("=" * 50)
+    print("ASSEMBLY COMPLETO GERADO")
+    print("=" * 50)
+    for linhaAssembly in codigoAssembly:
+        print("  " + linhaAssembly)
+
+    # Salva o Assembly em arquivo .s
+    nomeAssembly = nomeArquivo.replace('.txt', '.s')
+    arquivoAssembly = open(nomeAssembly, 'w')
+    for linhaAssembly in codigoAssembly:
+        arquivoAssembly.write(linhaAssembly + '\n')
+    arquivoAssembly.close()
+    print()
+    print("Arquivo Assembly salvo em: " + nomeAssembly)
+
 if __name__ == "__main__":
     main()
