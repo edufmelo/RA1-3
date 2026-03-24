@@ -279,33 +279,191 @@ def resolverAninhamento(tokens):
 
 
 
-# Gera codigo Assembly ARMv7 (VFP) completo a partir de uma lista de vetores de tokens
+# Gera codigo Assembly ARMv7 (VFP)
 def gerarAssembly(listaTokens, codigoAssembly):
-    secaoDados = []
-    secaoTexto = []
-    
+    secaoDados = []            # linhas da secao .data (constantes e variaveis)
+    secaoTexto = []            # linhas da secao .text (instrucoes)
+    contadorLabel = 0          # contador de labels para loops (potenciacao)
+    labelsMemoria = set()      # labels de memoria ja criadas no .data
+    constantesUsadas = {}      # mapeia valor -> nome do label (deduplicacao)
+
     for numLinha, tokens in enumerate(listaTokens):
+        grupos = resolverAninhamento(tokens)
+        pilhaRegistradores = []
+        contadorRegistrador = 0    # reseta por expressao (D0, D1, ...)
+
+        # Verifica se ha tokens de erro nesta expressao
+        temErro = any(t.tipo == "ERRO" for t in tokens)
+        if temErro:
+            secaoTexto.append("")
+            secaoTexto.append("    @ Linha " + str(numLinha) + " - IGNORADA (erro lexico)")
+            continue
+
+        secaoTexto.append("")
         secaoTexto.append("    @ Linha " + str(numLinha))
         secaoTexto.append("linha" + str(numLinha) + ":")
-        secaoTexto.append("    @ TODO: Implementar conversao de codigo Assembly para esta expressao")
-        # Apenas imprime os tipos dos tokens para mostrar que a leitura ocorreu com sucesso
-        secaoTexto.append("    @ Tokens avaliados: " + ", ".join([t.tipo for t in tokens]))
-        secaoTexto.append("")
 
-    # Monta o codigo Assembly completo (esqueleto basico)
+        for grupo in grupos:
+            for token in grupo:
+                # Numero: carrega constante de 64 bits
+                if token.tipo == "NUMERO":
+                    valorNumero = token.valor
+
+                    # Deduplicacao: reutiliza label se o valor ja foi declarado
+                    if valorNumero in constantesUsadas:
+                        nomeConst = constantesUsadas[valorNumero]
+                    else:
+                        if valorNumero.startswith('-'):
+                            sufixo = "neg"
+                            valorLimpo = valorNumero[1:]
+                        else:
+                            sufixo = "pos"
+                            valorLimpo = valorNumero
+
+                        valorLabel = valorLimpo.replace('.', '_')
+                        nomeConst = "const_" + valorLabel + "_" + sufixo
+                        constantesUsadas[valorNumero] = nomeConst
+                        secaoDados.append("    .align 3")
+                        secaoDados.append("    " + nomeConst + ": .double " + valorNumero)
+
+                    nomeReg = "D" + str(contadorRegistrador)
+                    contadorRegistrador += 1
+                    secaoTexto.append("    LDR R4, =" + nomeConst)
+                    secaoTexto.append("    VLDR " + nomeReg + ", [R4]        @ carrega double " + valorNumero)
+                    pilhaRegistradores.append(nomeReg)
+
+                # Operador: desempilha 2 registradores, opera, empilha resultado
+                elif token.tipo == "OPERADOR":
+                    if len(pilhaRegistradores) < 2:
+                        secaoTexto.append("    @ ERRO: operandos insuficientes para '" + token.valor + "'")
+                        continue
+
+                    regB = pilhaRegistradores.pop()
+                    regA = pilhaRegistradores.pop()
+                    regResultado = "D" + str(contadorRegistrador)
+                    contadorRegistrador += 1
+
+                    if token.valor == "+":
+                        secaoTexto.append("    VADD.F64 " + regResultado + ", " + regA + ", " + regB + "    @ " + regA + " + " + regB)
+
+                    elif token.valor == "-":
+                        secaoTexto.append("    VSUB.F64 " + regResultado + ", " + regA + ", " + regB + "    @ " + regA + " - " + regB)
+
+                    elif token.valor == "*":
+                        secaoTexto.append("    VMUL.F64 " + regResultado + ", " + regA + ", " + regB + "    @ " + regA + " * " + regB)
+
+                    elif token.valor == "/":
+                        secaoTexto.append("    VDIV.F64 " + regResultado + ", " + regA + ", " + regB + "    @ " + regA + " / " + regB)
+
+                    elif token.valor == "//":
+                        secaoTexto.append("    @ divisao inteira: " + regA + " // " + regB)
+                        secaoTexto.append("    VDIV.F64 " + regResultado + ", " + regA + ", " + regB)
+                        secaoTexto.append("    VCVT.S32.F64 S31, " + regResultado + "    @ trunca para inteiro em temp S31")
+                        secaoTexto.append("    VCVT.F64.S32 " + regResultado + ", S31    @ volta para double")
+
+                    elif token.valor == "%":
+                        secaoTexto.append("    @ resto: " + regA + " % " + regB)
+                        secaoTexto.append("    VDIV.F64 " + regResultado + ", " + regA + ", " + regB + "    @ quociente double")
+                        secaoTexto.append("    VCVT.S32.F64 S31, " + regResultado + "    @ trunca para inteiro em temp S31")
+                        secaoTexto.append("    VCVT.F64.S32 " + regResultado + ", S31    @ quociente inteiro como double")
+                        secaoTexto.append("    VMUL.F64 " + regResultado + ", " + regResultado + ", " + regB + "    @ quociente * divisor")
+                        secaoTexto.append("    VSUB.F64 " + regResultado + ", " + regA + ", " + regResultado + "    @ resto = dividendo - quociente * divisor")
+
+                    elif token.valor == "^":
+                        nomeLabel = "potencia" + str(contadorLabel)
+                        contadorLabel += 1
+                        secaoTexto.append("    @ potenciacao: " + regA + " ^ " + regB + " (loop com VMUL)")
+                        secaoTexto.append("    VCVT.S32.F64 S31, " + regB)
+                        secaoTexto.append("    VMOV R0, S31              @ R0 = expoente (inteiro)")
+                        secaoTexto.append("    @ inicializa resultado com 1.0")
+                        if "1.0" in constantesUsadas:
+                            nomeConst1 = constantesUsadas["1.0"]
+                        else:
+                            nomeConst1 = "const_1_0_pos"
+                            constantesUsadas["1.0"] = nomeConst1
+                            secaoDados.append("    .align 3")
+                            secaoDados.append("    " + nomeConst1 + ": .double 1.0")
+                        secaoTexto.append("    LDR R4, =" + nomeConst1)
+                        secaoTexto.append("    VLDR " + regResultado + ", [R4]    @ resultado = 1.0")
+                        secaoTexto.append(nomeLabel + ":")
+                        secaoTexto.append("    CMP R0, #0")
+                        secaoTexto.append("    BLE " + nomeLabel + "_fim")
+                        secaoTexto.append("    VMUL.F64 " + regResultado + ", " + regResultado + ", " + regA)
+                        secaoTexto.append("    SUB R0, R0, #1")
+                        secaoTexto.append("    B " + nomeLabel)
+                        secaoTexto.append(nomeLabel + "_fim:")
+
+                    pilhaRegistradores.append(regResultado)
+
+                # Memoria: store (pilha com valor) ou load (pilha vazia)
+                elif token.tipo == "MEMORIA":
+                    nomeMem = token.valor
+                    nomeLabel = "mem_" + nomeMem
+
+                    if nomeLabel not in labelsMemoria:
+                        secaoDados.append("    .align 3")
+                        secaoDados.append("    " + nomeLabel + ": .double 0.0")
+                        labelsMemoria.add(nomeLabel)
+
+                    if len(pilhaRegistradores) > 0:
+                        # Store: valor da pilha vai para memória
+                        regValor = pilhaRegistradores.pop()
+                        secaoTexto.append("    LDR R0, =" + nomeLabel + "        @ store em " + nomeMem)
+                        secaoTexto.append("    VSTR " + regValor + ", [R0]")
+                    else:
+                        # Load: valor da memória vai para registrador
+                        regCarregado = "D" + str(contadorRegistrador)
+                        contadorRegistrador += 1
+                        secaoTexto.append("    LDR R0, =" + nomeLabel + "        @ load de " + nomeMem)
+                        secaoTexto.append("    VLDR " + regCarregado + ", [R0]")
+                        pilhaRegistradores.append(regCarregado)
+
+                # RES: acessa histórico de resultados
+                elif token.tipo == "KEYWORD" and token.valor == "RES":
+                    if len(pilhaRegistradores) < 1:
+                        secaoTexto.append("    @ ERRO: falta N para RES")
+                        continue
+
+                    regN = pilhaRegistradores.pop()
+                    regResultado = "D" + str(contadorRegistrador)
+                    contadorRegistrador += 1
+
+                    secaoTexto.append("    @ RES: acessa resultado anterior")
+                    secaoTexto.append("    VCVT.S32.F64 S31, " + regN)
+                    secaoTexto.append("    VMOV R0, S31              @ R0 = N")
+                    secaoTexto.append("    LDR R1, =resultados")
+                    secaoTexto.append("    LDR R2, =numResultados")
+                    secaoTexto.append("    LDR R2, [R2]")
+                    secaoTexto.append("    SUB R2, R2, R0              @ indice = total - N")
+                    secaoTexto.append("    LSL R2, R2, #3              @ offset em bytes (double = 8)")
+                    secaoTexto.append("    ADD R1, R1, R2")
+                    secaoTexto.append("    VLDR " + regResultado + ", [R1]")
+                    pilhaRegistradores.append(regResultado)
+
+    # Se alguma expressao usou RES, adiciona resultados e numResultados ao .data
+    usaRES = any(any(t.tipo == "KEYWORD" and t.valor == "RES" for t in tokens) for tokens in listaTokens)
+    if usaRES:
+        secaoDados.append("    .align 3")
+        secaoDados.append("    resultados: .space 800       @ espaco para 100 doubles")
+        secaoDados.append("    numResultados: .word 0")
+
+    # Adiciona fim do programa
+    secaoTexto.append("")
+    secaoTexto.append("    @ Fim do programa")
+    secaoTexto.append("fim:")
+    secaoTexto.append("    B fim")
+
+    # Monta o código Assembly completo
     codigoAssembly.append(".global _start")
     codigoAssembly.append("")
     codigoAssembly.append(".data")
-    codigoAssembly.append("    @ TODO: Adicionar variaveis globais e constantes do programa")
+    for linha in secaoDados:
+        codigoAssembly.append(linha)
     codigoAssembly.append("")
     codigoAssembly.append(".text")
     codigoAssembly.append("_start:")
     for linha in secaoTexto:
         codigoAssembly.append(linha)
-    
-    codigoAssembly.append("    @ Fim do programa")
-    codigoAssembly.append("fim:")
-    codigoAssembly.append("    B fim")
 
 # Exibe os resultados formatados
 def exibirResultados(resultados):
@@ -445,12 +603,20 @@ def testarResolverAninhamento():
 
 def testarGerarAssembly():
     print("=" * 50)
-    print("TESTES DA GERACAO DE ASSEMBLY (VERSAO BASICA)")
+    print("TESTES DA GERACAO DE ASSEMBLY")
     print("=" * 50)
 
+    # Testa com todas as expressoes obrigatorias de uma vez
     entradas = [
         "(3.14 2.0 +)",
+        "((1.5 2.0 *) (3.0 4.0 *) /)",
         "(5.0 MEM)",
+        "(MEM)",
+        "(2 RES)",
+        "(10 3 //)",
+        "(10 3 %)",
+        "(2.0 8 ^)",
+        "(-2.0 3.0 +)",
     ]
 
     listaTokens = []
@@ -462,15 +628,24 @@ def testarGerarAssembly():
     codigoAssembly = []
     gerarAssembly(listaTokens, codigoAssembly)
 
-    # Verificacoes simples para compilacao inicial
+    # Verificacoes
     temGlobal = any(".global _start" in linha for linha in codigoAssembly)
     temSecaoDados = any(".data" in linha for linha in codigoAssembly)
+    temSecaoTexto = any(".text" in linha for linha in codigoAssembly)
     temFim = any("B fim" in linha for linha in codigoAssembly)
+    temLinhas = any("linha0:" in linha for linha in codigoAssembly)
+
+    # Verifica deduplicacao de constantes (2.0 aparece varias vezes, deve ter so 1 label)
+    contagem2_0 = sum(1 for linha in codigoAssembly if "const_2_0_pos" in linha and ".double" in linha)
+    deduplicou = contagem2_0 == 1
 
     testes = [
-        ("Gera .global _start", temGlobal),
-        ("Gera .data", temSecaoDados),
-        ("Gera bloco B fim", temFim),
+        ("Tem .global _start", temGlobal),
+        ("Tem .data", temSecaoDados),
+        ("Tem .text", temSecaoTexto),
+        ("Tem B fim", temFim),
+        ("Tem labels linha0:", temLinhas),
+        ("Deduplicou constantes (2.0 aparece 1x no .data)", deduplicou),
     ]
 
     aprovados = 0
@@ -486,7 +661,7 @@ def testarGerarAssembly():
         print(status + " | " + descricao)
 
     print()
-    print("Assembly basico gerado (" + str(len(codigoAssembly)) + " linhas):")
+    print("Assembly completo gerado (" + str(len(codigoAssembly)) + " linhas):")
     for linha in codigoAssembly:
         print("     " + linha)
     print()
