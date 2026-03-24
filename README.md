@@ -59,7 +59,7 @@ O repositório contém um mínimo de 3 arquivos de texto para testes, cada um co
 
 1. Gere o código Assembly executando o programa com um arquivo de teste.
 2. Acesse o Simulador CPULATOR configurado para ARMv7 DEC1-SOC(v16.1).
-3. Abra o arquivo .s gerado no simulador, pressione o botão "Compile and Load (F5)" na linguagem ARMv7 e execute passo a passo com Step Over (F2) ou Resume (F3) para verificar se as operações estão ocorrendo corretamente.
+3. Abra o arquivo .s gerado no simulador, pressione o botão "Compile and Load (F5)" na linguagem ARMv7 e execute passo a passo com Step Over (F2) ou Continue (F3) para verificar se as operações estão ocorrendo corretamente.
 
 ## Observações e Decisões de Projeto
 - **Nomenclatura do Repositório:** O nome do grupo registrado no Canvas é "RA1 3". No entanto, como o GitHub não permite o uso de espaços na criação de URLs de repositórios, adaptamos o nome para RA1-3.
