@@ -1,3 +1,11 @@
+"""
+Alunos: 
+- Daniel de Almeida Santos Bina
+- Eduardo Ferreira de Melo
+- João Eduardo Faccin Leineker
+Grupo: RA1 3
+"""
+
 import sys
 
 # Como nos slides (Aula 04), contudo, de forma mais simples com tipo e valor
@@ -140,9 +148,6 @@ def estadoErro(linha, pos, tokens):
     novoToken = Token("ERRO", "Caractere invalido: " + charInvalido)
     tokens.append(novoToken)
 
-    # Utilizado para debugar
-    print(f"Erro: caractere invalido '{charInvalido}' na posicao {pos}\n")
-
     return pos + 1
 
 # Avalia as expressões RPN (pilha) e gerencia memoria/RES
@@ -276,8 +281,6 @@ def resolverAninhamento(tokens):
             grupoAtual.append(token)
 
     return grupos
-
-
 
 # Gera codigo Assembly ARMv7 (VFP)
 def gerarAssembly(listaTokens, codigoAssembly):
@@ -466,13 +469,24 @@ def gerarAssembly(listaTokens, codigoAssembly):
         codigoAssembly.append(linha)
 
 # Exibe os resultados formatados
-def exibirResultados(resultados):
-    pass
+def exibirResultados(exibicao):
+    print("\nResultados das expressoes (CPULATOR)")
+    
+    if not exibicao:
+        print("Nenhum resultado para exibir.")
+        return
 
+    # Percorre a lista de resultados e imprime com 1 casa decimal
+    for num_linha, valor in exibicao:
+        if valor is not None:
+            print(f"Linha {num_linha}: {valor:.1f}")
+        else:
+            print(f"Linha {num_linha}: ---")
+    print("\n")
+        
 def testarAnalisadorLexico():
     print("=" * 50)
-    print("TESTES DO ANALISADOR LEXICO")
-    print("=" * 50)
+    print("Testes do analisador lexico\n")
 
     # Cada caso tem: (descrição, entrada, True se valido / False se invalido)
     casos = [
@@ -519,18 +533,12 @@ def testarAnalisadorLexico():
         else:
             reprovados += 1
 
-        print(status + " | " + descricao)
-        print("     Entrada : " + entrada)
-        print("     Tokens  : " + str(tokens))
-        print()
-
     print("Resultado: " + str(aprovados) + " aprovados, " + str(reprovados) + " reprovados")
-    print("=" * 50)
+    print("=" * 50 + "\n")
 
 def testarExecutarExpressao():
     print("=" * 50)
-    print("TESTES DO EXECUTAR EXPRESSAO")
-    print("=" * 50)
+    print("Testes do executar expressao\n")
 
     memoria = {}
 
@@ -578,12 +586,11 @@ def testarExecutarExpressao():
     passou = resultado == 9.0
     print(("OK" if passou else "FALHOU") + " | (CONT) deve retornar 9.0, retornou: " + str(resultado))
 
-    print("=" * 50)
+    print("=" * 50 + "\n")
     
 def testarResolverAninhamento():
     print("=" * 50)
-    print("TESTES DO RESOLVER ANINHAMENTO")
-    print("=" * 50)
+    print("Testes do resolver aninhamento\n")
 
     # ((2.0 3.0 *) 4.0 +) deve gerar 2 grupos:
     # grupo 1: [NUMERO(2.0), NUMERO(3.0), OPERADOR(*)]
@@ -599,12 +606,11 @@ def testarResolverAninhamento():
 
     passou = len(grupos) == 2
     print(("OK" if passou else "FALHOU") + " | deve ter 2 grupos")
-    print("=" * 50)
+    print("=" * 50 + "\n")
 
 def testarGerarAssembly():
     print("=" * 50)
-    print("TESTES DA GERACAO DE ASSEMBLY")
-    print("=" * 50)
+    print("Testes da geracao de assembly\n")
 
     # Testa com todas as expressoes obrigatorias de uma vez
     entradas = [
@@ -660,24 +666,19 @@ def testarGerarAssembly():
             status = "FALHOU"
         print(status + " | " + descricao)
 
-    print()
-    print("Assembly completo gerado (" + str(len(codigoAssembly)) + " linhas):")
-    for linha in codigoAssembly:
-        print("     " + linha)
-    print()
-
     print("Resultado: " + str(aprovados) + " aprovados, " + str(reprovados) + " reprovados")
-    print("=" * 50)
+    print("=" * 50 + "\n")
 
 def main():
     if len(sys.argv) < 2:
         print("Uso: python analisador.py <arquivo_teste>")
         return
 
-    testarAnalisadorLexico()      # Roda os testes do analisador lexico
-    testarExecutarExpressao()     # Roda os testes de execucao
-    testarResolverAninhamento()   # Roda os testes de aninhamento
-    testarGerarAssembly()         # Roda os testes de geracao de Assembly
+    print("Realização dos testes:\n")
+    testarAnalisadorLexico()      
+    testarExecutarExpressao()
+    testarResolverAninhamento()
+    testarGerarAssembly()
 
     nomeArquivo = sys.argv[1]
     linhas = []
@@ -687,42 +688,35 @@ def main():
     memoria = {}      # dicionario de variaveis para MEM
     listaTokens = []  # acumula tokens de todas as linhas
 
+    exibicao = []     # lista de tuplas (num_linha, valor) para exibir os resultados
+
     # Para cada linha, faz a analise lexica e executa
-    for i in range(len(linhas)):
+    for i, linha in enumerate(linhas):
         vetorTokens = []
-        parseExpressao(linhas[i], vetorTokens)
-
-        # Utilizado para debugar
-        print("Linha " + str(i) + ": " + linhas[i])
-        print("Tokens: " + str(vetorTokens))
-        print()
-
-        resultado = executarExpressao(vetorTokens, resultados, memoria)
-
-        if resultado is not None:
-            print("Resultado: " + str(resultado))
-            print()
-
+        parseExpressao(linha, vetorTokens)
         listaTokens.append(vetorTokens)
 
-    # Gera e exibe o codigo Assembly ARMv7
+        # Captura o retorno (pode ser um float ou None se der erro/for V MEM)
+        res = executarExpressao(vetorTokens, resultados, memoria)
+        # Salva o número da linha (i + 1) e o resultado dela para o terminal
+        exibicao.append((i + 1, res))
+
+    # Manda a lista focada na saída
+    exibirResultados(exibicao)
+
     codigoAssembly = []
     gerarAssembly(listaTokens, codigoAssembly)
 
-    print("=" * 50)
-    print("ASSEMBLY COMPLETO GERADO")
-    print("=" * 50)
-    for linhaAssembly in codigoAssembly:
-        print("  " + linhaAssembly)
-
     # Salva o Assembly em arquivo .s
     nomeAssembly = nomeArquivo.replace('.txt', '.s')
-    arquivoAssembly = open(nomeAssembly, 'w')
-    for linhaAssembly in codigoAssembly:
-        arquivoAssembly.write(linhaAssembly + '\n')
-    arquivoAssembly.close()
-    print()
-    print("Arquivo Assembly salvo em: " + nomeAssembly)
+
+    try:
+        with open(nomeAssembly, 'w') as arquivoAssembly:
+            for linhaAssembly in codigoAssembly:
+                arquivoAssembly.write(linhaAssembly + '\n')
+        print(f"Arquivo Assembly salvo em: {nomeAssembly}\n")
+    except Exception as e:
+        print(f"Erro ao salvar arquivo Assembly: {e}")
 
 if __name__ == "__main__":
     main()
