@@ -42,19 +42,7 @@ def parseExpressao(linha, vetorTokens):
             pos += 1
         elif char.isdigit() or char == ".":
             pos = estadoNumero(linha, pos, vetorTokens)
-        elif char == "-":
-            # Olha o último token para decidir se é operador ou número negativo
-            ultimoToken = vetorTokens[-1] if len(vetorTokens) > 0 else None
-
-            if (
-                ultimoToken is None
-                or ultimoToken.tipo == "ABRE_PAREN"
-                or ultimoToken.tipo == "OPERADOR"
-            ):
-                pos = estadoNumero(linha, pos, vetorTokens)
-            else:
-                pos = estadoOperador(linha, pos, vetorTokens)
-        elif char in "+*/%^":
+        elif char in "-+*/%^":
             pos = estadoOperador(linha, pos, vetorTokens)
         elif char in "()":
             pos = estadoParenteses(linha, pos, vetorTokens)
@@ -66,10 +54,6 @@ def parseExpressao(linha, vetorTokens):
 def estadoNumero(linha, pos, tokens):
     textoNumero = ""
     qtdePontos = 0
-
-    if pos < len(linha) and linha[pos] == "-":
-        textoNumero += "-"
-        pos += 1
 
     while pos < len(linha) and (linha[pos].isdigit() or linha[pos] == "."):
         if linha[pos] == ".":
@@ -291,15 +275,8 @@ def gerarAssembly(listaTokens, codigoAssembly):
                     if valorNumero in constantesUsadas:
                         nomeConst = constantesUsadas[valorNumero]
                     else:
-                        if valorNumero.startswith("-"):
-                            sufixo = "neg"
-                            valorLimpo = valorNumero[1:]
-                        else:
-                            sufixo = "pos"
-                            valorLimpo = valorNumero
-
-                        valorLabel = valorLimpo.replace(".", "_")
-                        nomeConst = "const_" + valorLabel + "_" + sufixo
+                        valorLabel = valorNumero.replace(".", "_")
+                        nomeConst = "const_" + valorLabel
                         constantesUsadas[valorNumero] = nomeConst
                         secaoDados.append("    .align 3")
                         secaoDados.append("    " + nomeConst + ": .double " + valorNumero)
@@ -357,7 +334,7 @@ def gerarAssembly(listaTokens, codigoAssembly):
                         if "1.0" in constantesUsadas:
                             nomeConst1 = constantesUsadas["1.0"]
                         else:
-                            nomeConst1 = "const_1_0_pos"
+                            nomeConst1 = "const_1_0"
                             constantesUsadas["1.0"] = nomeConst1
                             secaoDados.append("    .align 3")
                             secaoDados.append("    " + nomeConst1 + ": .double 1.0")
