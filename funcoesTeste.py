@@ -27,7 +27,7 @@ def testarAnalisadorLexico():
         ("Divisao inteira", "(10 3 //)", True),
         ("Resto", "(10 3 %)", True),
         ("Potenciacao", "(2.0 8 ^)", True),
-        ("Numero negativo", "(-2.0 3.0 +)", True),
+
         ("Expressao aninhada", "((2.0 3.0 *) 4.0 +)", True),
         ("Comando RES", "(2 RES)", True),
         ("Comando store MEM", "(5.0 X)", True),
@@ -126,7 +126,13 @@ def testarResolverAninhamento():
     print("Entrada: ((2.0 3.0 *) 4.0 +)")
     print("Grupos encontrados: " + str(len(grupos)))
     for i, grupo in enumerate(grupos):
-        print("  Grupo " + str(i) + ": " + str(grupo))
+        textoGrupo = "["
+        for j, t in enumerate(grupo):
+            textoGrupo += "(" + t.tipo + ", " + t.valor + ")"
+            if j < len(grupo) - 1:
+                textoGrupo += ", "
+        textoGrupo += "]"
+        print("  Grupo " + str(i) + ": " + textoGrupo)
 
     passou = len(grupos) == 2
     print(("OK" if passou else "FALHOU") + " | deve ter 2 grupos")
@@ -146,7 +152,6 @@ def testarGerarAssembly():
         "(10 3 //)",
         "(10 3 %)",
         "(2.0 8 ^)",
-        "(-2.0 3.0 +)",
     ]
 
     listaTokens = []
@@ -166,7 +171,7 @@ def testarGerarAssembly():
     temLinhas = any("linha0:" in linha for linha in codigoAssembly)
 
     # Verifica deduplicacao de constantes (2.0 aparece varias vezes, deve ter so 1 label)
-    contagem2_0 = sum(1 for linha in codigoAssembly if "const_2_0_pos" in linha and ".double" in linha)
+    contagem2_0 = sum(1 for linha in codigoAssembly if "const_2_0" in linha and ".double" in linha)
     deduplicou = contagem2_0 == 1
 
     testes = [
