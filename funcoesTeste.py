@@ -1,3 +1,11 @@
+"""
+Alunos:
+- Daniel de Almeida Santos Bina
+- Eduardo Ferreira de Melo
+- João Eduardo Faccin Leineker
+Grupo: RA1 3
+"""
+
 from analisador import (
     parseExpressao,
     executarExpressao,
@@ -104,7 +112,6 @@ def testarExecutarExpressao():
     print(("OK" if passou else "FALHOU") + " | (CONT) deve retornar 9.0, retornou: " + str(resultado))
     print("=" * 50 + "\n")
 
-
 def testarResolverAninhamento():
     print("=" * 50)
     print("Testes do resolver aninhamento\n")
@@ -124,7 +131,6 @@ def testarResolverAninhamento():
     passou = len(grupos) == 2
     print(("OK" if passou else "FALHOU") + " | deve ter 2 grupos")
     print("=" * 50 + "\n")
-
 
 def testarGerarAssembly():
     print("=" * 50)
@@ -186,7 +192,6 @@ def testarGerarAssembly():
 
     print("Resultado: " + str(aprovados) + " aprovados, " + str(reprovados) + " reprovados")
     print("=" * 50 + "\n")
-
 
 def iniciarTestes():
     print("Realização dos testes:\n")
