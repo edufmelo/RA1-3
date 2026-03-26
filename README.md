@@ -1,9 +1,9 @@
 # Fase 1 - Analisador Léxico e Gerador de Assembly para ARMv7
 
-**Instituição:** PUCPR
-**Disciplina:** Linguagens Formais e Compiladores  
-**Professor:** Frank Coelho de Alcantara  
-**Grupo:** RA1-3  
+- **Instituição:** PUCPR
+- **Disciplina:** Linguagens Formais e Compiladores  
+- **Professor:** Frank Coelho de Alcantara  
+- **Grupo:** RA1-3  
 
 ## Integrantes do Grupo
 - Daniel de Almeida Santos Bina (GitHub: @danielbina) 
@@ -44,7 +44,7 @@ O que o programa fará:
 1. Lerá o arquivo de entrada linha por linha.
 2. Imprimirá no terminal a lista de Tokens gerada pela análise léxica (para fins de depuração).
 3. Gerará um código Assembly compatível com o ARMv7.
-4. Salvará a saída Assembly (ex: teste1.s) ou a imprimirá no terminal para ser copiada.
+4. Salvará a saída Assembly (ex: teste1.s).
 
 ## Testes e Validação no CPULATOR
 O repositório contém um mínimo de 3 arquivos de texto para testes, cada um contendo pelo menos 10 linhas de expressões.
@@ -66,3 +66,4 @@ O repositório contém um mínimo de 3 arquivos de texto para testes, cada um co
 
 - **Integração e Divisão de Tarefas:** A equipe buscou seguir a sugestão de divisão de responsabilidades apresentada na especificação, assim, nomeando as branchs de acordo com a divisão de tarefas sugerida na especificação, com o formato `feature/aluno-X`. No entanto, para garantir um fluxo de desenvolvimento contínuo, realizamos algumas adaptações práticas. Funções de infraestrutura básica, como exemplo a função `lerArquivo` (originalmente sugerida para o Aluno 3), foram implementadas de forma antecipada durante a construção da base do analisador léxico. Essa abordagem nos permitiu realizar testes isolados do Autômato Finito Determinístico desde o primeiro dia e adiantou os passos de integração estrutural do projeto como um todo.
 
+- **Realização dos testes:** Os testes foram movidos para um arquivo separado para melhor organização e visualização.
