@@ -464,7 +464,6 @@ def exibirResultados(exibicao):
             print(f"Linha {num_linha}: ---")
     print("\n")
 
-
 def main():
     if len(sys.argv) < 2:
         print("Uso: python analisador.py <arquivo_teste>")
