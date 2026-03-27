@@ -441,6 +441,16 @@ def exibirResultados(exibicao):
             print(f"Linha {num_linha}: ---")
     print("\n")
 
+# Salva uma lista de linhas em um arquivo
+def salvarArquivo(nome, linhas):
+    try:
+        with open(nome, "w") as f:
+            for linha in linhas:
+                f.write(linha + "\n")
+        print(f"Arquivo {nome} salvo com sucesso.\n")
+    except Exception as e:
+        print(f"Erro ao salvar arquivo {nome}: {e}")
+
 def main():
     if len(sys.argv) < 2:
         print("Uso: python analisador.py <arquivo_teste>")
@@ -470,18 +480,24 @@ def main():
 
     exibirResultados(exibicao)
 
+    # Exporta tokens para tokens.txt - diferente do linhasTokens que é uma lista de listas de tokens
+    linhasTokens = []
+    for expressao in listaTokens:
+        tokens_formatados = []
+        for t in expressao:
+            tokens_formatados.append(f"{t.tipo}:{t.valor}")
+        
+        # Junta os tokens daquela linha com um espaço entre eles
+        linha_completa = " ".join(tokens_formatados)
+        linhasTokens.append(linha_completa)
+        
+    salvarArquivo("tokens.txt", linhasTokens)
+
     codigoAssembly = []
     gerarAssembly(listaTokens, codigoAssembly)
 
     nomeAssembly = nomeArquivo.replace(".txt", ".s")
-
-    try:
-        with open(nomeAssembly, "w") as arquivoAssembly:
-            for linhaAssembly in codigoAssembly:
-                arquivoAssembly.write(linhaAssembly + "\n")
-        print(f"Arquivo Assembly salvo em: {nomeAssembly}\n")
-    except Exception as e:
-        print(f"Erro ao salvar arquivo Assembly: {e}")
+    salvarArquivo(nomeAssembly, codigoAssembly)
 
 if __name__ == "__main__":
     main()
