@@ -236,10 +236,20 @@ def resolverAninhamento(tokens):
             pilhaGrupos.append(grupoAtual)
             grupoAtual = []
         elif token.tipo == "FECHA_PAREN":
+            if not pilhaGrupos:
+                # Caso 1: Fechamento sem abertura (Desbalanceado)
+                print("Erro Sintático: Parênteses desbalanceado. ')' encontrado sem '(' correspondente.")
+                return None
+            
             grupos.append(grupoAtual)
             grupoAtual = pilhaGrupos.pop()
         else:
             grupoAtual.append(token)
+
+    if pilhaGrupos:
+        # Caso 2: Abertura sem fechamento (Desbalanceado ao final)
+        print(f"Erro Sintático: Parênteses desbalanceado. Faltam {len(pilhaGrupos)} parênteses de fechamento.")
+        return None
 
     return grupos
 
@@ -253,13 +263,18 @@ def gerarAssembly(listaTokens, codigoAssembly):
 
     for numLinha, tokens in enumerate(listaTokens):
         grupos = resolverAninhamento(tokens)
+        if grupos is None:
+            secaoTexto.append("")
+            secaoTexto.append("    @ Linha " + str(numLinha) + " - IGNORADA (ERRO SINTATICO)")
+            continue
+
         pilhaRegistradores = []
         contadorRegistrador = 0
 
         temErro = any(t.tipo == "ERRO" for t in tokens)
         if temErro:
             secaoTexto.append("")
-            secaoTexto.append("    @ Linha " + str(numLinha) + " - IGNORADA (erro lexico)")
+            secaoTexto.append("    @ Linha " + str(numLinha) + " - IGNORADA (ERRO LEXICO)")
             continue
 
         secaoTexto.append("")
@@ -474,6 +489,11 @@ def main():
         vetorTokens = []
         parseExpressao(linha, vetorTokens)
         listaTokens.append(vetorTokens)
+
+        grupos = resolverAninhamento(vetorTokens)
+        if grupos is None:
+            exibicao.append((i + 1, None))
+            continue
 
         res = executarExpressao(vetorTokens, resultados, memoria)
         exibicao.append((i + 1, res))
