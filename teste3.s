@@ -24,9 +24,9 @@
     .align 3
     mem_MEM: .double 0.0
     .align 3
-    mem_X: .double 0.0
-    .align 3
     const_1_5: .double 1.5
+    .align 3
+    mem_X: .double 0.0
     .align 3
     resultados: .space 800       @ espaco para 100 doubles
     numResultados: .word 0
@@ -303,7 +303,21 @@ linha13:
 
     @ Linha 14
 linha14:
-    LDR R0, =mem_X        @ load de X
+    LDR R4, =const_10
+    VLDR D0, [R4]        @ carrega double 10
+    LDR R0, =mem_MEM        @ store em MEM
+    VSTR D0, [R0]
+
+    @ Linha 15
+linha15:
+    LDR R4, =const_1_5
+    VLDR D0, [R4]        @ carrega double 1.5
+    LDR R0, =mem_X        @ store em X
+    VSTR D0, [R0]
+
+    @ Linha 16
+linha16:
+    LDR R0, =mem_MEM        @ load de MEM
     VLDR D0, [R0]
     @ Armazena resultado no historico
     LDR R0, =numResultados
@@ -315,23 +329,9 @@ linha14:
     ADD R1, R1, #1
     STR R1, [R0]                @ numResultados++
 
-    @ Linha 15
-linha15:
-    LDR R4, =const_10
-    VLDR D0, [R4]        @ carrega double 10
-    LDR R0, =mem_MEM        @ store em MEM
-    VSTR D0, [R0]
-
-    @ Linha 16
-linha16:
-    LDR R4, =const_1_5
-    VLDR D0, [R4]        @ carrega double 1.5
-    LDR R0, =mem_X        @ store em X
-    VSTR D0, [R0]
-
     @ Linha 17
 linha17:
-    LDR R0, =mem_MEM        @ load de MEM
+    LDR R0, =mem_X        @ load de X
     VLDR D0, [R0]
     @ Armazena resultado no historico
     LDR R0, =numResultados
@@ -345,15 +345,28 @@ linha17:
 
     @ Linha 18
 linha18:
-    LDR R0, =mem_X        @ load de X
+    LDR R0, =mem_MEM        @ load de MEM
     VLDR D0, [R0]
+    LDR R4, =const_4
+    VLDR D1, [R4]        @ carrega double 4
+    @ RES: acessa resultado anterior
+    VCVT.S32.F64 S31, D1
+    VMOV R0, S31              @ R0 = N
+    LDR R1, =resultados
+    LDR R2, =numResultados
+    LDR R2, [R2]
+    SUB R2, R2, R0              @ indice = total - N
+    LSL R2, R2, #3              @ offset em bytes (double = 8)
+    ADD R1, R1, R2
+    VLDR D2, [R1]
+    VADD.F64 D3, D0, D2    @ D0 + D2
     @ Armazena resultado no historico
     LDR R0, =numResultados
     LDR R1, [R0]                @ R1 = numResultados atual
     LDR R2, =resultados
     LSL R3, R1, #3              @ offset = R1 * 8 (double = 8 bytes)
     ADD R2, R2, R3
-    VSTR D0, [R2]               @ guarda resultado no array
+    VSTR D3, [R2]               @ guarda resultado no array
     ADD R1, R1, #1
     STR R1, [R0]                @ numResultados++
 
