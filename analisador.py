@@ -418,12 +418,23 @@ def gerarAssembly(listaTokens, codigoAssembly):
                     secaoTexto.append("    VLDR " + regResultado + ", [R1]")
                     pilhaRegistradores.append(regResultado)
 
-    # Se alguma expressao usou RES, adiciona resultados e numResultados ao .data
-    usaRES = any(any(t.tipo == "KEYWORD" and t.valor == "RES" for t in tokens) for tokens in listaTokens)
-    if usaRES:
-        secaoDados.append("    .align 3")
-        secaoDados.append("    resultados: .space 800       @ espaco para 100 doubles")
-        secaoDados.append("    numResultados: .word 0")
+        # Armazena o resultado da linha no historico (resultados/numResultados)
+        if len(pilhaRegistradores) > 0:
+            regFinal = pilhaRegistradores[-1]
+            secaoTexto.append("    @ Armazena resultado no historico")
+            secaoTexto.append("    LDR R0, =numResultados")
+            secaoTexto.append("    LDR R1, [R0]                @ R1 = numResultados atual")
+            secaoTexto.append("    LDR R2, =resultados")
+            secaoTexto.append("    LSL R3, R1, #3              @ offset = R1 * 8 (double = 8 bytes)")
+            secaoTexto.append("    ADD R2, R2, R3")
+            secaoTexto.append("    VSTR " + regFinal + ", [R2]               @ guarda resultado no array")
+            secaoTexto.append("    ADD R1, R1, #1")
+            secaoTexto.append("    STR R1, [R0]                @ numResultados++")
+
+    # Sempre adiciona resultados e numResultados ao .data (necessario para historico)
+    secaoDados.append("    .align 3")
+    secaoDados.append("    resultados: .space 800       @ espaco para 100 doubles")
+    secaoDados.append("    numResultados: .word 0")
 
     secaoTexto.append("")
     secaoTexto.append("    @ Fim do programa")
