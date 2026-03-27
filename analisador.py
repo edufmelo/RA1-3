@@ -236,10 +236,20 @@ def resolverAninhamento(tokens):
             pilhaGrupos.append(grupoAtual)
             grupoAtual = []
         elif token.tipo == "FECHA_PAREN":
+            if not pilhaGrupos:
+                # Caso 1: Fechamento sem abertura (Desbalanceado)
+                print("Erro Sintático: Parênteses desbalanceado. ')' encontrado sem '(' correspondente.")
+                return None
+            
             grupos.append(grupoAtual)
             grupoAtual = pilhaGrupos.pop()
         else:
             grupoAtual.append(token)
+
+    if pilhaGrupos:
+        # Caso 2: Abertura sem fechamento (Desbalanceado ao final)
+        print(f"Erro Sintático: Parênteses desbalanceado. Faltam {len(pilhaGrupos)} parênteses de fechamento.")
+        return None
 
     return grupos
 
@@ -252,19 +262,25 @@ def gerarAssembly(listaTokens, codigoAssembly):
     constantesUsadas = {}  # mapeia valor -> nome do label (deduplicacao)
 
     for numLinha, tokens in enumerate(listaTokens):
+        numReal = numLinha + 1
         grupos = resolverAninhamento(tokens)
+        if grupos is None:
+            secaoTexto.append("")
+            secaoTexto.append(f"    @ Linha {numReal} - IGNORADA (ERRO SINTATICO)")
+            continue
+
         pilhaRegistradores = []
         contadorRegistrador = 0
 
         temErro = any(t.tipo == "ERRO" for t in tokens)
         if temErro:
             secaoTexto.append("")
-            secaoTexto.append("    @ Linha " + str(numLinha) + " - IGNORADA (erro lexico)")
+            secaoTexto.append(f"    @ Linha {numReal} - IGNORADA (ERRO LEXICO)")
             continue
 
         secaoTexto.append("")
-        secaoTexto.append("    @ Linha " + str(numLinha))
-        secaoTexto.append("linha" + str(numLinha) + ":")
+        secaoTexto.append(f"    @ Linha {numReal}")
+        secaoTexto.append(f"linha{numReal}:")
 
         for grupo in grupos:
             for token in grupo:
@@ -441,6 +457,16 @@ def exibirResultados(exibicao):
             print(f"Linha {num_linha}: ---")
     print("\n")
 
+# Salva uma lista de linhas em um arquivo
+def salvarArquivo(nome, linhas):
+    try:
+        with open(nome, "w") as f:
+            for linha in linhas:
+                f.write(linha + "\n")
+        print(f"Arquivo {nome} salvo com sucesso.\n")
+    except Exception as e:
+        print(f"Erro ao salvar arquivo {nome}: {e}")
+
 def main():
     if len(sys.argv) < 2:
         print("Uso: python analisador.py <arquivo_teste>")
@@ -465,23 +491,34 @@ def main():
         parseExpressao(linha, vetorTokens)
         listaTokens.append(vetorTokens)
 
+        grupos = resolverAninhamento(vetorTokens)
+        if grupos is None:
+            exibicao.append((i + 1, None))
+            continue
+
         res = executarExpressao(vetorTokens, resultados, memoria)
         exibicao.append((i + 1, res))
 
     exibirResultados(exibicao)
 
+    # Exporta tokens para tokens.txt - diferente do linhasTokens que é uma lista de listas de tokens
+    linhasTokens = []
+    for expressao in listaTokens:
+        tokens_formatados = []
+        for t in expressao:
+            tokens_formatados.append(f"{t.tipo}:{t.valor}")
+        
+        # Junta os tokens daquela linha com um espaço entre eles
+        linha_completa = " ".join(tokens_formatados)
+        linhasTokens.append(linha_completa)
+        
+    salvarArquivo("tokens.txt", linhasTokens)
+
     codigoAssembly = []
     gerarAssembly(listaTokens, codigoAssembly)
 
     nomeAssembly = nomeArquivo.replace(".txt", ".s")
-
-    try:
-        with open(nomeAssembly, "w") as arquivoAssembly:
-            for linhaAssembly in codigoAssembly:
-                arquivoAssembly.write(linhaAssembly + "\n")
-        print(f"Arquivo Assembly salvo em: {nomeAssembly}\n")
-    except Exception as e:
-        print(f"Erro ao salvar arquivo Assembly: {e}")
+    salvarArquivo(nomeAssembly, codigoAssembly)
 
 if __name__ == "__main__":
     main()
