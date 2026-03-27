@@ -168,7 +168,7 @@ def testarGerarAssembly():
     temSecaoDados = any(".data" in linha for linha in codigoAssembly)
     temSecaoTexto = any(".text" in linha for linha in codigoAssembly)
     temFim = any("B fim" in linha for linha in codigoAssembly)
-    temLinhas = any("linha0:" in linha for linha in codigoAssembly)
+    temLinhas = any("linha1:" in linha for linha in codigoAssembly)
 
     # Verifica deduplicacao de constantes (2.0 aparece varias vezes, deve ter so 1 label)
     contagem2_0 = sum(1 for linha in codigoAssembly if "const_2_0" in linha and ".double" in linha)
@@ -179,7 +179,7 @@ def testarGerarAssembly():
         ("Tem .data", temSecaoDados),
         ("Tem .text", temSecaoTexto),
         ("Tem B fim", temFim),
-        ("Tem labels linha0:", temLinhas),
+        ("Tem labels linha1:", temLinhas),
         ("Deduplicou constantes (2.0 aparece 1x no .data)", deduplicou),
     ]
 
