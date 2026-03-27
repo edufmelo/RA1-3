@@ -262,10 +262,11 @@ def gerarAssembly(listaTokens, codigoAssembly):
     constantesUsadas = {}  # mapeia valor -> nome do label (deduplicacao)
 
     for numLinha, tokens in enumerate(listaTokens):
+        numReal = numLinha + 1
         grupos = resolverAninhamento(tokens)
         if grupos is None:
             secaoTexto.append("")
-            secaoTexto.append("    @ Linha " + str(numLinha) + " - IGNORADA (ERRO SINTATICO)")
+            secaoTexto.append(f"    @ Linha {numReal} - IGNORADA (ERRO SINTATICO)")
             continue
 
         pilhaRegistradores = []
@@ -274,12 +275,12 @@ def gerarAssembly(listaTokens, codigoAssembly):
         temErro = any(t.tipo == "ERRO" for t in tokens)
         if temErro:
             secaoTexto.append("")
-            secaoTexto.append("    @ Linha " + str(numLinha) + " - IGNORADA (ERRO LEXICO)")
+            secaoTexto.append(f"    @ Linha {numReal} - IGNORADA (ERRO LEXICO)")
             continue
 
         secaoTexto.append("")
-        secaoTexto.append("    @ Linha " + str(numLinha))
-        secaoTexto.append("linha" + str(numLinha) + ":")
+        secaoTexto.append(f"    @ Linha {numReal}")
+        secaoTexto.append(f"linha{numReal}:")
 
         for grupo in grupos:
             for token in grupo:
