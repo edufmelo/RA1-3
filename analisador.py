@@ -126,6 +126,7 @@ def estadoErro(linha, pos, tokens):
 def executarExpressao(tokens, resultados, memoria):
     pilha = []
     i = 0
+    acaoMemoria = None  
 
     while i < len(tokens):
         token = tokens[i]
@@ -182,7 +183,9 @@ def executarExpressao(tokens, resultados, memoria):
             nomeMem = token.valor
 
             if len(pilha) > 0:
-                memoria[nomeMem] = pilha.pop()
+                valorTopo = pilha.pop()
+                memoria[nomeMem] = valorTopo
+                acaoMemoria = f"{valorTopo:.1f} armazenado" # Guarda o texto
             else:
                 if nomeMem in memoria:
                     pilha.append(memoria[nomeMem])
@@ -220,6 +223,8 @@ def executarExpressao(tokens, resultados, memoria):
         resultados.append(resultado)
         return resultado
     elif len(pilha) == 0:
+        if acaoMemoria is not None:  # Se guardou algo, retorna o texto
+            return acaoMemoria
         return None
     else:
         print("Erro: pilha com multiplos valores ao final - expressao mal formada")
@@ -418,12 +423,22 @@ def gerarAssembly(listaTokens, codigoAssembly):
                     secaoTexto.append("    VLDR " + regResultado + ", [R1]")
                     pilhaRegistradores.append(regResultado)
 
-    # Se alguma expressao usou RES, adiciona resultados e numResultados ao .data
-    usaRES = any(any(t.tipo == "KEYWORD" and t.valor == "RES" for t in tokens) for tokens in listaTokens)
-    if usaRES:
-        secaoDados.append("    .align 3")
-        secaoDados.append("    resultados: .space 800       @ espaco para 100 doubles")
-        secaoDados.append("    numResultados: .word 0")
+        if len(pilhaRegistradores) == 1:
+            regFinal = pilhaRegistradores.pop()
+            secaoTexto.append("    @ Armazena resultado no historico")
+            secaoTexto.append("    LDR R0, =numResultados")
+            secaoTexto.append("    LDR R1, [R0]                @ R1 = numResultados atual")
+            secaoTexto.append("    LDR R2, =resultados")
+            secaoTexto.append("    LSL R3, R1, #3              @ offset = R1 * 8 (double = 8 bytes)")
+            secaoTexto.append("    ADD R2, R2, R3")
+            secaoTexto.append("    VSTR " + regFinal + ", [R2]               @ guarda resultado no array")
+            secaoTexto.append("    ADD R1, R1, #1")
+            secaoTexto.append("    STR R1, [R0]                @ numResultados++")
+
+    # Sempre adiciona resultados e numResultados ao .data (necessario para historico)
+    secaoDados.append("    .align 3")
+    secaoDados.append("    resultados: .space 800       @ espaco para 100 doubles")
+    secaoDados.append("    numResultados: .word 0")
 
     secaoTexto.append("")
     secaoTexto.append("    @ Fim do programa")
@@ -451,10 +466,12 @@ def exibirResultados(exibicao):
         return
 
     for num_linha, valor in exibicao:
-        if valor is not None:
-            print(f"Linha {num_linha}: {valor:.1f}")
-        else:
+        if valor is None:
             print(f"Linha {num_linha}: ---")
+        elif isinstance(valor, str):  # Se for string, imprime direto -> texto de MEM
+            print(f"Linha {num_linha}: {valor}")
+        else: # Se for número, imprime com uma casa decimal
+            print(f"Linha {num_linha}: {valor:.1f}")
     print("\n")
 
 # Salva uma lista de linhas em um arquivo
